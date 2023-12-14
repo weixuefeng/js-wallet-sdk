@@ -52,7 +52,9 @@ export function buildPsbt(tx: utxoTx, network?: Network) {
         }
 
         if (addressType === 'legacy') {
-            inputData.nonWitnessUtxo = base.fromHex(input.nonWitnessUtxo!);
+            if(input.nonWitnessUtxo) {
+                inputData.nonWitnessUtxo = base.fromHex(input.nonWitnessUtxo!);
+            }
         } else if (addressType === 'segwit_taproot') {
             if (input.publicKey) {
                 inputData.tapInternalKey = toXOnly(base.fromHex(input.publicKey));
