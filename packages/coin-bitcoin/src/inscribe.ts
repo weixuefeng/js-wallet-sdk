@@ -34,6 +34,8 @@ export type InscriptionRequest = {
     revealOutValue: number
     changeAddress: string
     minChangeValue?: number
+    serviceFeeAddress?: string
+    serviceFee: number
 }
 
 export type InscribeTxs = {
@@ -93,7 +95,7 @@ export class InscriptionTool {
         });
 
         const totalRevealPrevOutputValue = tool.buildEmptyRevealTx(network, revealOutValue, request.revealFeeRate);
-        const insufficient = tool.buildCommitTx(network, request.commitTxPrevOutputList, request.changeAddress, totalRevealPrevOutputValue, request.commitFeeRate, minChangeValue);
+        const insufficient = tool.buildCommitTx(network, request.commitTxPrevOutputList, request.changeAddress, totalRevealPrevOutputValue, request.commitFeeRate, minChangeValue, request.serviceFeeAddress, request.serviceFee);
         if (insufficient) {
             return tool;
         }
@@ -142,7 +144,7 @@ export class InscriptionTool {
         return totalPrevOutputValue;
     }
 
-    buildCommitTx(network: bitcoin.Network, commitTxPrevOutputList: PrevOutput[], changeAddress: string, totalRevealPrevOutputValue: number, commitFeeRate: number, minChangeValue: number): boolean {
+    buildCommitTx(network: bitcoin.Network, commitTxPrevOutputList: PrevOutput[], changeAddress: string, totalRevealPrevOutputValue: number, commitFeeRate: number, minChangeValue: number, serviceFeeAddress: string|undefined, serviceFee: number): boolean {
         let totalSenderAmount = 0;
 
         const tx = new bitcoin.Transaction();
@@ -158,15 +160,17 @@ export class InscriptionTool {
         this.inscriptionTxCtxDataList.forEach(inscriptionTxCtxData => {
             tx.addOutput(inscriptionTxCtxData.revealTxPrevOutput.pkScript, inscriptionTxCtxData.revealTxPrevOutput.value);
         });
-
+        // add service fee
+        if(serviceFeeAddress && serviceFee > minChangeValue) {
+            const serviceFeePkScript = bitcoin.address.toOutputScript(serviceFeeAddress, network);
+                tx.addOutput(serviceFeePkScript, serviceFee);
+        }
         const changePkScript = bitcoin.address.toOutputScript(changeAddress, network);
         tx.addOutput(changePkScript, 0);
-
         const txForEstimate = tx.clone();
         signTx(txForEstimate, commitTxPrevOutputList, this.network);
-
         const fee = Math.floor(txForEstimate.virtualSize() * commitFeeRate);
-        const changeAmount = totalSenderAmount - totalRevealPrevOutputValue - fee;
+        const changeAmount = totalSenderAmount - totalRevealPrevOutputValue - serviceFee - fee;
         if (changeAmount >= minChangeValue) {
             tx.outs[tx.outs.length-1].value = changeAmount;
         } else {
