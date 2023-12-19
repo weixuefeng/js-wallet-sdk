@@ -114,6 +114,7 @@ export function psbtSignImpl(psbt: Psbt, privateKey: string, network?: Network) 
 
     const allowedSighashTypes = [
         Transaction.SIGHASH_SINGLE|Transaction.SIGHASH_ANYONECANPAY,
+        Transaction.SIGHASH_ALL|Transaction.SIGHASH_ANYONECANPAY,
         Transaction.SIGHASH_ALL,
         Transaction.SIGHASH_DEFAULT
     ];
@@ -137,6 +138,7 @@ export function extractPsbtTransaction(txHex: string, network?: Network) {
         extractedTransaction = psbt.finalizeAllInputs().extractTransaction()
     } catch (e){
         extractedTransaction = psbt.extractTransaction()
+        console.log(e)
     }
     return extractedTransaction.toHex();
 }
