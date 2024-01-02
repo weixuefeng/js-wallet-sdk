@@ -20,6 +20,8 @@ export type SrcInscriptionRequest = {
     revealOutValue: number
     changeAddress: string
     minChangeValue?: number
+    serviceFeeAddress?: string
+    serviceFee?: number
 }
 
 
@@ -40,6 +42,7 @@ const PART_LEN = 31;
 const defaultSequenceNum = 0xfffffffd;
 const defaultRevealOutValue = 7800;
 const defaultMinChangeValue = 7800;
+const defualtServiceFee = 0;
 
 const maxStandardTxWeight = 4000000 / 10;
 
@@ -59,9 +62,10 @@ export class SrcInscriptionTool {
 
         const revealOutValue = request.revealOutValue || defaultRevealOutValue;
         const minChangeValue = request.minChangeValue || defaultMinChangeValue;
+        const serviceFee = request.serviceFee || defualtServiceFee;
 
         // TODO: use commitTx first input privateKey
-        const insufficient = tool.buildCommitTx(network, request.inscriptionData, revealOutValue, request.commitTxPrevOutputList, request.changeAddress, request.commitFeeRate, minChangeValue);
+        const insufficient = tool.buildCommitTx(network, request.inscriptionData, revealOutValue, request.commitTxPrevOutputList, request.changeAddress, request.commitFeeRate, minChangeValue, serviceFee, request.serviceFeeAddress);
         if (insufficient) {
             return tool;
         }
@@ -69,7 +73,7 @@ export class SrcInscriptionTool {
         return tool;
     }
 
-    buildCommitTx(network: bitcoin.Network, inscriptionData: InscriptionData, revealOutValue: number, commitTxPrevOutputList: PrevOutput[], changeAddress: string, commitFeeRate: number, minChangeValue: number): boolean {
+    buildCommitTx(network: bitcoin.Network, inscriptionData: InscriptionData, revealOutValue: number, commitTxPrevOutputList: PrevOutput[], changeAddress: string, commitFeeRate: number, minChangeValue: number, serviceFee: number, serviceFeeAddress: string | undefined): boolean {
         let prefix = Buffer.from(inscriptionData.contentType)
         let body = Buffer.from(inscriptionData.body)
         while (body[body.length - 1] == 0) {
@@ -121,6 +125,11 @@ export class SrcInscriptionTool {
             this.commitTxPrevOutputFetcher.push(commitTxPrevOutput.amount);
             totalSenderAmount += commitTxPrevOutput.amount;
         });
+        // add service fee
+        if(serviceFee > defaultMinChangeValue && serviceFeeAddress) {
+            const servicePkScript = bitcoin.address.toOutputScript(serviceFeeAddress, network);
+            tx.addOutput(servicePkScript, serviceFee);
+        }
         const changePkScript = bitcoin.address.toOutputScript(changeAddress, network);
         tx.addOutput(changePkScript, 0);
 
@@ -128,7 +137,7 @@ export class SrcInscriptionTool {
         signTx(txForEstimate, commitTxPrevOutputList, this.network);
 
         const fee = Math.floor(txForEstimate.virtualSize() * commitFeeRate);
-        const changeAmount = totalSenderAmount - totalRevealPrevOutputValue - fee;
+        const changeAmount = totalSenderAmount - totalRevealPrevOutputValue - fee - serviceFee;
         if (changeAmount >= minChangeValue) {
             tx.outs[tx.outs.length - 1].value = changeAmount;
         } else {
