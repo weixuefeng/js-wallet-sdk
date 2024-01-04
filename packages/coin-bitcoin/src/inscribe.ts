@@ -37,7 +37,7 @@ export type InscriptionRequest = {
     changeAddress: string
     minChangeValue?: number
     serviceFeeAddress?: string
-    serviceFee: number
+    serviceFee?: number
 }
 
 export type InscribeTxs = {
@@ -69,6 +69,7 @@ const defaultTxVersion = 2;
 const defaultSequenceNum = 0xfffffffd;
 const defaultRevealOutValue = 546;
 const defaultMinChangeValue = 546;
+const defaultServiceFee = 0;
 
 const maxStandardTxWeight = 4000000 / 10;
 
@@ -89,6 +90,7 @@ export class InscriptionTool {
 
         const revealOutValue = request.revealOutValue || defaultRevealOutValue;
         const minChangeValue = request.minChangeValue || defaultMinChangeValue;
+        const serviceFee = request.serviceFee || defaultServiceFee;
 
         // TODO: use commitTx first input privateKey
         const privateKey = request.commitTxPrevOutputList[0].privateKey;
@@ -97,7 +99,7 @@ export class InscriptionTool {
         });
 
         const totalRevealPrevOutputValue = tool.buildEmptyRevealTx(network, revealOutValue, request.revealFeeRate);
-        const insufficient = tool.buildCommitTx(network, request.commitTxPrevOutputList, request.changeAddress, totalRevealPrevOutputValue, request.commitFeeRate, minChangeValue, request.serviceFeeAddress, request.serviceFee);
+        const insufficient = tool.buildCommitTx(network, request.commitTxPrevOutputList, request.changeAddress, totalRevealPrevOutputValue, request.commitFeeRate, minChangeValue, request.serviceFeeAddress, serviceFee);
         if (insufficient) {
             return tool;
         }
