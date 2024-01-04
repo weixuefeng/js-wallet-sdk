@@ -10,6 +10,7 @@ import {
     sign,
     wif2Public
 } from "./txBuild";
+import { litecoin } from "./wallet";
 
 const schnorr = signUtil.schnorr.secp256k1.schnorr
 
@@ -288,28 +289,50 @@ function createInscriptionTxCtxData(network: bitcoin.Network, inscriptionData: I
     const internalPubKey = wif2Public(privateKeyWif, network).slice(1);
 
     const ops = bitcoin.script.OPS;
-
     const inscriptionBuilder: bitcoin.payments.StackElement[] = [];
-    inscriptionBuilder.push(internalPubKey);
-    inscriptionBuilder.push(ops.OP_CHECKSIG);
-    inscriptionBuilder.push(ops.OP_FALSE);
-    inscriptionBuilder.push(ops.OP_IF);
-    inscriptionBuilder.push(Buffer.from("ord"));
-    inscriptionBuilder.push(ops.OP_DATA_1);
-    inscriptionBuilder.push(ops.OP_DATA_1);
-    inscriptionBuilder.push(Buffer.from(inscriptionData.contentType));
-    inscriptionBuilder.push(ops.OP_0);
-    const maxChunkSize = 520;
-    let body = Buffer.from(inscriptionData.body);
-    let bodySize = body.length;
-    for (let i = 0; i < bodySize; i += maxChunkSize) {
-        let end = i + maxChunkSize;
-        if (end > bodySize) {
-            end = bodySize;
+    if(network == litecoin) {
+        inscriptionBuilder.push(internalPubKey);
+        inscriptionBuilder.push(ops.OP_CHECKSIG);
+        inscriptionBuilder.push(ops.OP_0);
+        inscriptionBuilder.push(ops.OP_IF);
+        inscriptionBuilder.push(Buffer.from("ord"));
+        inscriptionBuilder.push(ops.OP_1);
+        inscriptionBuilder.push(Buffer.from(inscriptionData.contentType));
+        inscriptionBuilder.push(ops.OP_0);
+        const maxChunkSize = 520;
+        let body = Buffer.from(inscriptionData.body);
+        let bodySize = body.length;
+        for (let i = 0; i < bodySize; i += maxChunkSize) {
+            let end = i + maxChunkSize;
+            if (end > bodySize) {
+                end = bodySize;
+            }
+            inscriptionBuilder.push(body.slice(i, end));
         }
-        inscriptionBuilder.push(body.slice(i, end));
+        inscriptionBuilder.push(ops.OP_ENDIF);
+    } else {
+        inscriptionBuilder.push(internalPubKey);
+        inscriptionBuilder.push(ops.OP_CHECKSIG);
+        inscriptionBuilder.push(ops.OP_FALSE);
+        inscriptionBuilder.push(ops.OP_IF);
+        inscriptionBuilder.push(Buffer.from("ord"));
+        inscriptionBuilder.push(ops.OP_DATA_1);
+        inscriptionBuilder.push(ops.OP_DATA_1);
+        inscriptionBuilder.push(Buffer.from(inscriptionData.contentType));
+        inscriptionBuilder.push(ops.OP_0);
+        const maxChunkSize = 520;
+        let body = Buffer.from(inscriptionData.body);
+        let bodySize = body.length;
+        for (let i = 0; i < bodySize; i += maxChunkSize) {
+            let end = i + maxChunkSize;
+            if (end > bodySize) {
+                end = bodySize;
+            }
+            inscriptionBuilder.push(body.slice(i, end));
+        }
+        inscriptionBuilder.push(ops.OP_ENDIF);
     }
-    inscriptionBuilder.push(ops.OP_ENDIF);
+
 
     const inscriptionScript = bitcoin.script.compile(inscriptionBuilder);
 
