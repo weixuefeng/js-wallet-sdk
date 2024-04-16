@@ -3,6 +3,7 @@ import {BtcWallet} from "./BtcWallet";
 import * as bitcoin from "../index"
 import {networks, signBtc, utxoTx} from "../index"
 import {buildRuneData} from "../rune";
+import {BtcXrcTypes} from "../common";
 import {base} from "@okxweb3/crypto-lib";
 
 export class RuneWallet extends BtcWallet {
@@ -176,10 +177,54 @@ export class RuneWallet extends BtcWallet {
             return Promise.reject(e);
         }
     }
+
+    buildTxParams(senderAddr: String, receiverAddr: String, runeId: String, transferAmount: String, runeUtxo: RuneUTXOInfo, gasUtxo: RuneUTXOInfo) : { [key: string] : any } {
+        let isTestnet = this.network() == bitcoin.networks.testnet;
+        return {
+            type: isTestnet ? BtcXrcTypes.RUNE : BtcXrcTypes.RUNEMAIN,
+            inputs: [ 
+                { 
+                    txId: runeUtxo.txId, 
+                    vOut: runeUtxo.vOut,
+                    amount: runeUtxo.amount,
+                    address: runeUtxo.address,
+                    data: [{"id": runeId, "amount": runeUtxo.balance}] 
+                }, 
+                { 
+                    txId: gasUtxo.txId,
+                    vOut: gasUtxo.vOut,
+                    amount: gasUtxo.amount,
+                    address: senderAddr
+                },
+            ],
+            outputs: [
+                { 
+                    address: receiverAddr,
+                    amount: 546,
+                    data: {"id": runeId, "amount": transferAmount} 
+                },
+            ],
+            address: senderAddr,
+            feePerB: isTestnet ? 10 : 5,
+            runeData: {
+                "etching": null,
+                "burn": false
+            }
+        }; 
+    }
+
 }
 
 export class RuneTestWallet extends RuneWallet {
     network() {
         return bitcoin.networks.testnet;
     }
+}
+
+export interface RuneUTXOInfo {
+    txId: String; 
+    vOut: Number;
+    amount: Number;
+    address: String;
+    balance: String;
 }
