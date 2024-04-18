@@ -178,9 +178,9 @@ export class RuneWallet extends BtcWallet {
         }
     }
 
-    buildTxParams(senderAddr: String, receiverAddr: String, runeId: String, transferAmount: String, runeUtxo: RuneUTXOInfo, gasUtxo: RuneUTXOInfo, feeRate: Number) : { [key: string] : any } {
+    buildTxParams(senderAddr: String, receiverAddr: String, runeId: String, runeBalance: String, transferAmount: String, runeUtxo: RuneUTXOInfo, gasUtxos: RuneUTXOInfo[], feeRate: Number) : { [key: string] : any } {
         let isTestnet = this.network() == bitcoin.networks.testnet;
-        return {
+        let params: any = {
             type: isTestnet ? BtcXrcTypes.RUNE : BtcXrcTypes.RUNEMAIN,
             inputs: [ 
                 { 
@@ -188,14 +188,8 @@ export class RuneWallet extends BtcWallet {
                     vOut: runeUtxo.vOut,
                     amount: runeUtxo.amount,
                     address: runeUtxo.address,
-                    data: [{"id": runeId, "amount": runeUtxo.balance}] 
-                }, 
-                { 
-                    txId: gasUtxo.txId,
-                    vOut: gasUtxo.vOut,
-                    amount: gasUtxo.amount,
-                    address: senderAddr
-                },
+                    data: [{"id": runeId, "amount": runeBalance}] 
+                },  
             ],
             outputs: [
                 { 
@@ -210,7 +204,17 @@ export class RuneWallet extends BtcWallet {
                 "etching": null,
                 "burn": false
             }
-        }; 
+        };  
+        for (let i = 0; i < gasUtxos.length; i++) {
+            let utxo = gasUtxos[i];
+            params.inputs.push({ 
+                txId: utxo.txId,
+                vOut: utxo.vOut,
+                amount: utxo.amount,
+                address: utxo.address,
+            });
+        }
+        return params;
     }
 
 }
@@ -225,6 +229,5 @@ export interface RuneUTXOInfo {
     txId: String; 
     vOut: Number;
     amount: Number;
-    address: String;
-    balance: String;
+    address: String; 
 }
