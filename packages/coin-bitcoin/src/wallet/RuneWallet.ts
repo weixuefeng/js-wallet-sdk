@@ -178,7 +178,7 @@ export class RuneWallet extends BtcWallet {
         }
     }
 
-    buildTxParams(senderAddr: String, receiverAddr: String, runeId: String, transferAmount: String, runeUtxo: RuneUTXOInfo, gasUtxo: RuneUTXOInfo) : { [key: string] : any } {
+    buildTxParams(senderAddr: String, receiverAddr: String, runeId: String, transferAmount: String, runeUtxo: RuneUTXOInfo, gasUtxo: RuneUTXOInfo, feeRate: Number) : { [key: string] : any } {
         let isTestnet = this.network() == bitcoin.networks.testnet;
         return {
             type: isTestnet ? BtcXrcTypes.RUNE : BtcXrcTypes.RUNEMAIN,
@@ -205,7 +205,7 @@ export class RuneWallet extends BtcWallet {
                 },
             ],
             address: senderAddr,
-            feePerB: isTestnet ? 10 : 5,
+            feePerB: feeRate,
             runeData: {
                 "etching": null,
                 "burn": false
