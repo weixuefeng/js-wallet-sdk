@@ -178,7 +178,7 @@ export class RuneWallet extends BtcWallet {
         }
     }
 
-    buildTxParams(senderAddr: String, receiverAddr: String, runeId: String, runeBalance: String, transferAmount: String, runeUtxo: RuneUTXOInfo, gasUtxos: RuneUTXOInfo[], feeRate: Number) : { [key: string] : any } {
+    buildTxParams(senderAddr: String, receiverAddr: String, runeId: String, runeBalance: String, transferAmount: String, runeUtxo: UtxoInfo, gasUtxos: UtxoInfo[], feeRate: Number) : { [key: string] : any } {
         let isTestnet = this.network() == bitcoin.networks.testnet;
         let params: any = {
             type: isTestnet ? BtcXrcTypes.RUNE : BtcXrcTypes.RUNEMAIN,
@@ -217,6 +217,60 @@ export class RuneWallet extends BtcWallet {
         return params;
     }
 
+    buildEtchingData(from: String, receiver: String, runeInfo: EtchRuneInfo, gasUtxos: UtxoInfo[], feeRate: Number) {
+        let t = BtcXrcTypes.RUNEMAIN;
+        if (this.network() == bitcoin.networks.testnet) {
+            t = BtcXrcTypes.RUNE;
+        }
+        let params: any = {
+          type: t,
+          inputs: [],
+          outputs: [],
+          address: from,
+          feePerB: feeRate,
+          runeData: {
+              "etching": { 
+                "spacedRune": runeInfo.spacedRune,
+                "divisibility": runeInfo.divisibility,
+                "symbol": runeInfo.symbol, 
+                "premine": runeInfo.premine,
+                "rune": runeInfo.rune,
+                "spacers": "•",
+                "terms": {
+                  "cap": runeInfo.cap,
+                  "height": [
+                    runeInfo.startHeight,
+                    runeInfo.endHeight
+                  ],
+                  "amount": runeInfo.amountToMint, 
+                }
+              },
+              "burn": false
+          }
+        };
+        for (let i = 0; i < gasUtxos.length; i++) {
+            let utxo = gasUtxos[i];
+            params.inputs.push({ 
+                txId: utxo.txId,
+                vOut: utxo.vOut,
+                amount: utxo.amount,
+                address: utxo.address,
+            });
+        }
+        if (runeInfo.premine.length > 0) {
+            params.output.add(
+                { 
+                    address: receiver,
+                    amount: 546,
+                    data: { 
+                        "amount": runeInfo.premine, 
+                    }, 
+                }
+            );
+        }
+        return params;  
+    }
+
 }
 
 export class RuneTestWallet extends RuneWallet {
@@ -225,9 +279,26 @@ export class RuneTestWallet extends RuneWallet {
     }
 }
 
-export interface RuneUTXOInfo {
+export interface UtxoInfo {
     txId: String; 
     vOut: Number;
     amount: Number;
     address: String; 
 }
+
+export interface EtchRuneInfo {
+    // runeId: String;
+
+    spacedRune: String; 
+    rune: String;
+    symbol: String; 
+
+    divisibility: Number;
+    premine: String;
+    cap: String;
+    startHeight: Number;
+    endHeight: Number;
+    amountToMint: String;
+}
+
+
