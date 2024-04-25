@@ -217,10 +217,16 @@ export class RuneWallet extends BtcWallet {
         return params;
     }
 
-    buildEtchingData(from: String, receiver: String, runeInfo: EtchRuneInfo, gasUtxos: UtxoInfo[], feeRate: Number) {
+    buildEtchingData(from: String, runeInfo: EtchRuneInfo, gasUtxos: UtxoInfo[], feeRate: Number) {
         let t = BtcXrcTypes.RUNEMAIN;
         if (this.network() == bitcoin.networks.testnet) {
             t = BtcXrcTypes.RUNE;
+        }
+        let spacers = "•";
+        let rune = runeInfo.spacedRune.replace(spacers, "");
+        var symbol = runeInfo.symbol;
+        if (!runeInfo.symbol) {
+            symbol = rune.substring(0, 1).toUpperCase();
         }
         let params: any = {
           type: t,
@@ -231,18 +237,15 @@ export class RuneWallet extends BtcWallet {
           runeData: {
               "etching": { 
                 "spacedRune": runeInfo.spacedRune,
-                "divisibility": runeInfo.divisibility,
+                "divisibility": 0,
                 "symbol": runeInfo.symbol, 
-                "premine": runeInfo.premine,
-                "rune": runeInfo.rune,
-                "spacers": "•",
+                "premine": "0",
+                "rune": rune,
+                "spacers": spacers,
                 "terms": {
-                  "cap": runeInfo.cap,
-                  "height": [
-                    runeInfo.startHeight,
-                    runeInfo.endHeight
-                  ],
-                  "amount": runeInfo.amountToMint, 
+                  "cap": runeInfo.supply,
+                  "height": [null, null],
+                  "amount": runeInfo.amountPerMint, 
                 }
               },
               "burn": false
@@ -256,17 +259,6 @@ export class RuneWallet extends BtcWallet {
                 amount: utxo.amount,
                 address: utxo.address,
             });
-        }
-        if (runeInfo.premine.length > 0) {
-            params.output.add(
-                { 
-                    address: receiver,
-                    amount: 546,
-                    data: { 
-                        "amount": runeInfo.premine, 
-                    }, 
-                }
-            );
         }
         return params;  
     }
@@ -286,19 +278,11 @@ export interface UtxoInfo {
     address: String; 
 }
 
-export interface EtchRuneInfo {
-    // runeId: String;
-
+export interface EtchRuneInfo { 
     spacedRune: String; 
-    rune: String;
-    symbol: String; 
-
-    divisibility: Number;
-    premine: String;
-    cap: String;
-    startHeight: Number;
-    endHeight: Number;
-    amountToMint: String;
+    symbol: String | null; 
+    supply: String;
+    amountPerMint: String;
 }
 
 
