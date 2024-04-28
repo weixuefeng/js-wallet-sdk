@@ -225,20 +225,20 @@ export class RuneWallet extends BtcWallet {
                 supply: "10000",
                 amountPerMint: "100"
             }
-            let gasUtxos = {
-                txId: "61b83b1c87fd929d0a7335bb2a86d3f71f00419699b963e9a75df4e44cf50ae2", 
-                vOut: 1,
-                amount: 123456, 
-                address: "bc1pd4yu86vqspf7eg46na440lq9864vm8xkyvz4hwuk2v7uqgr255ysz8xhye"
-            }
+            let gasUtxos = [
+                {
+                    txId: "61b83b1c87fd929d0a7335bb2a86d3f71f00419699b963e9a75df4e44cf50ae2", 
+                    vOut: 1,
+                    amount: 123456, 
+                    address: "bc1pd4yu86vqspf7eg46na440lq9864vm8xkyvz4hwuk2v7uqgr255ysz8xhye"
+                },
+                ......
+            ]
             let feeRate = 165;
             this.buildEtchingData(from, runeInfo, gasUtxos, feeRate);
     */
     buildEtchingData(from: String, runeInfo: EtchRuneInfo, gasUtxos: UtxoInfo[], feeRate: Number) {
-        let t = BtcXrcTypes.RUNEMAIN;
-        if (this.network() == bitcoin.networks.testnet) {
-            t = BtcXrcTypes.RUNE;
-        }
+        let t = this.network() == bitcoin.networks.testnet ? BtcXrcTypes.RUNE : BtcXrcTypes.RUNEMAIN;
         let spacers = "•";
         let rune = runeInfo.spacedRune.replace(spacers, "");
         var symbol = runeInfo.symbol;
@@ -279,6 +279,55 @@ export class RuneWallet extends BtcWallet {
         }
         return params;  
     }
+
+    /*  
+        Example:
+            let from = "bc1pd4yu86vqspf7eg46na440lq9864vm8xkyvz4hwuk2v7uqgr255ysz8xhye"
+            let to = "bc1pd4yu86vqspf7eg46na440lq9864vm8xkyvz4hwuk2v7uqgr255ysz8xhye"
+            let runeId = "840603:4236"
+            let amountToMint = "100"
+            let gasUtxos = [
+                {
+                    txId: "590f384a602247548ce3dc63b8fe1d5f58dfd962134f5a973d544b774f881940", 
+                    vOut: 1,
+                    amount: 3504, 
+                    address: "bc1pd4yu86vqspf7eg46na440lq9864vm8xkyvz4hwuk2v7uqgr255ysz8xhye"
+                },
+                ......
+            ]
+            let feeRate = 85;
+            this.buildMintingData(from, runeInfo, gasUtxos, feeRate);
+    */
+    buildMintingData(from: String, to: String, runeId: String, amountToMint: String, gasUtxos: UtxoInfo[], feeRate: Number) {
+        let t = this.network() == bitcoin.networks.testnet ? BtcXrcTypes.RUNE : BtcXrcTypes.RUNEMAIN;
+        let params: any = {
+            type: t,
+            inputs: [],
+            outputs: [
+                { 
+                    address: to,
+                    amount: 546,
+                    data: {"id": runeId, "amount": amountToMint} 
+                },
+            ],
+            address: from,
+            feePerB: feeRate,
+            runeData: {
+                "etching": null,
+                "burn": false
+            }
+        };  
+        for (let i = 0; i < gasUtxos.length; i++) {
+            let utxo = gasUtxos[i];
+            params.inputs.push({ 
+                txId: utxo.txId,
+                vOut: utxo.vOut,
+                amount: utxo.amount,
+                address: utxo.address,
+            });
+        }
+        return params;
+    } 
 
 }
 
