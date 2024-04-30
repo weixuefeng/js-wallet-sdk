@@ -73,7 +73,8 @@ export function buildRuneData(isMainnet: boolean, edicts: Edict[]): Buffer {
     // return payload
     let prefix
     if (isMainnet) {
-        prefix = 'R'
+        // prefix = 'R'
+        prefix = OPS.OP_13.toString()
     } else {
         prefix = 'RUNE_TEST'
     }

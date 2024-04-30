@@ -178,10 +178,10 @@ export class RuneWallet extends BtcWallet {
         }
     }
 
-    buildTxParams(senderAddr: String, receiverAddr: String, runeId: String, runeBalance: String, transferAmount: String, runeUtxo: UtxoInfo, gasUtxos: UtxoInfo[], feeRate: Number) : { [key: string] : any } {
-        let isTestnet = this.network() == bitcoin.networks.testnet;
+    buildTxParams(senderAddr: string, receiverAddr: string, runeId: string, runeBalance: string, transferAmount: string, runeUtxo: UtxoInfo, gasUtxos: UtxoInfo[], feeRate: number) : { [key: string] : any } {
+        let remaining = parseInt(runeBalance) - parseInt(transferAmount);
         let params: any = {
-            type: isTestnet ? BtcXrcTypes.RUNE : BtcXrcTypes.RUNEMAIN,
+            type: BtcXrcTypes.RUNE,
             inputs: [ 
                 { 
                     txId: runeUtxo.txId, 
@@ -196,6 +196,11 @@ export class RuneWallet extends BtcWallet {
                     address: receiverAddr,
                     amount: 546,
                     data: {"id": runeId, "amount": transferAmount} 
+                },
+                { 
+                    address: senderAddr,
+                    amount: 546,
+                    data: {"id": runeId, "amount": remaining.toString()} 
                 },
             ],
             address: senderAddr,
@@ -235,10 +240,9 @@ export class RuneWallet extends BtcWallet {
                 ......
             ]
             let feeRate = 165;
-            this.buildEtchingData(from, runeInfo, gasUtxos, feeRate);
+            this.buildEtchingParams(from, runeInfo, gasUtxos, feeRate);
     */
-    buildEtchingData(from: String, runeInfo: EtchRuneInfo, gasUtxos: UtxoInfo[], feeRate: Number) {
-        let t = this.network() == bitcoin.networks.testnet ? BtcXrcTypes.RUNE : BtcXrcTypes.RUNEMAIN;
+    buildEtchingParams(from: string, runeInfo: EtchRuneInfo, gasUtxos: UtxoInfo[], feeRate: number) { 
         let spacers = "•";
         let rune = runeInfo.spacedRune.replace(spacers, "");
         var symbol = runeInfo.symbol;
@@ -246,7 +250,7 @@ export class RuneWallet extends BtcWallet {
             symbol = rune.substring(0, 1).toUpperCase();
         }
         let params: any = {
-          type: t,
+          type: BtcXrcTypes.RUNE,
           inputs: [],
           outputs: [],
           address: from,
@@ -255,7 +259,7 @@ export class RuneWallet extends BtcWallet {
               "etching": { 
                 "spacedRune": runeInfo.spacedRune,
                 "divisibility": 0,
-                "symbol": runeInfo.symbol, 
+                "symbol": symbol, 
                 "premine": "0",
                 "rune": rune,
                 "spacers": spacers,
@@ -286,6 +290,7 @@ export class RuneWallet extends BtcWallet {
             let to = "bc1pd4yu86vqspf7eg46na440lq9864vm8xkyvz4hwuk2v7uqgr255ysz8xhye"
             let runeId = "840603:4236"
             let amountToMint = "100"
+            let timeOfRepetition = 3;
             let gasUtxos = [
                 {
                     txId: "590f384a602247548ce3dc63b8fe1d5f58dfd962134f5a973d544b774f881940", 
@@ -295,21 +300,14 @@ export class RuneWallet extends BtcWallet {
                 },
                 ......
             ]
-            let feeRate = 85;
-            this.buildMintingData(from, runeInfo, gasUtxos, feeRate);
+            let feeRate = 35;
+            this.buildMintingParams(from, to, runeId, amountToMint, timeOfRepetition, gasUtxos, feeRate);
     */
-    buildMintingData(from: String, to: String, runeId: String, amountToMint: String, gasUtxos: UtxoInfo[], feeRate: Number) {
-        let t = this.network() == bitcoin.networks.testnet ? BtcXrcTypes.RUNE : BtcXrcTypes.RUNEMAIN;
+    buildMintingParams(from: string, to: string, runeId: string, amountToMint: string, timeOfRepetition: number, gasUtxos: UtxoInfo[], feeRate: number) { 
         let params: any = {
-            type: t,
+            type: BtcXrcTypes.RUNE,
             inputs: [],
-            outputs: [
-                { 
-                    address: to,
-                    amount: 546,
-                    data: {"id": runeId, "amount": amountToMint} 
-                },
-            ],
+            outputs: [],
             address: from,
             feePerB: feeRate,
             runeData: {
@@ -324,6 +322,13 @@ export class RuneWallet extends BtcWallet {
                 vOut: utxo.vOut,
                 amount: utxo.amount,
                 address: utxo.address,
+            });
+        }
+        for (let k = 0; k < timeOfRepetition; k++) {
+            params.outputs.push({ 
+                address: to,
+                amount: 546,
+                data: {"id": runeId, "amount": amountToMint} 
             });
         }
         return params;
