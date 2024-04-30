@@ -70,15 +70,18 @@ export function buildRuneData(isMainnet: boolean, edicts: Edict[]): Buffer {
         }
     }
 
-    // return payload
     let prefix
     if (isMainnet) {
-        // prefix = 'R'
-        prefix = OPS.OP_13.toString()
+        prefix = OPS.OP_13
     } else {
-        prefix = 'RUNE_TEST'
+        prefix = Buffer.from('RUNE_TEST')
     }
-    const opReturnScript = bscript.compile([OPS.OP_RETURN, Buffer.from(prefix), Buffer.from(payload)])
+    /*
+        Link for doc https://docs.ordinals.com/runes.html#runestones
 
-    return opReturnScript
+        NOTE: A runestone output's script pubkey begins with an OP_RETURN, followed by OP_13, 
+        followed by zero or more data pushes. These data pushes are concatenated 
+        and decoded into a sequence of 128-bit integers, and finally parsed into a runestone.
+    */ 
+    return bscript.compile([OPS.OP_RETURN, prefix, Buffer.from(payload)])
 }
