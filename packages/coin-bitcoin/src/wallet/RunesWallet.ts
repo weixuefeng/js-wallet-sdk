@@ -25,14 +25,14 @@ export class RunesWallet {
       const networkType = 0; // mainnet 
       const enableRBF = true; 
 
-      assetUtxos = assetUtxos.map((v) => Object.assign(v, { inscriptions: [], atomicals: [] }) ); 
-      btcUtxos = btcUtxos.map((v) => Object.assign(v, { inscriptions: [], atomicals: [] }) ); 
+      assetUtxos = assetUtxos.map((v: any) => Object.assign(v, { inscriptions: [], atomicals: [] }) ); 
+      btcUtxos = btcUtxos.map((v: any) => Object.assign(v, { inscriptions: [], atomicals: [] }) ); 
 
       const _assetUtxos = [];
       let total = BigInt(0);
       for (let i = 0; i < assetUtxos.length; i++) {
         const v = assetUtxos[i];
-        v.runes?.forEach((r) => {
+        v.runes?.forEach((r: any) => {
           if (r.runeid == runeid) {
             total = total + BigInt(r.amount);
           }
@@ -70,7 +70,7 @@ export class RunesWallet {
       const psbtNetwork = toPsbtNetwork(networkType)
 
       let addrType = this.getAddressType(from);
-      psbt.data.inputs.forEach((v, index) => {
+      psbt.data.inputs.forEach((v: any, index: number) => {
         const isNotSigned = !(v.finalScriptSig || v.finalScriptWitness);
         const isP2TR = addrType === this.AddressType.P2TR;
         const lostInternalPubkey = !v.tapInternalKey;
@@ -90,7 +90,7 @@ export class RunesWallet {
       let _keyring = new SimpleKeyring([privateKey]);
       let psbt1 = await _keyring.signTransaction(psbt, toSignInputs);
       if (autoFinalized) {
-        toSignInputs.forEach((v) => {
+        toSignInputs.forEach((v: any) => {
           // psbt.validateSignaturesOfInput(v.index, validator);
           psbt.finalizeInput(v.index);
         });
@@ -106,7 +106,7 @@ export class RunesWallet {
     if (options && options.toSignInputs) {
       // We expect userToSignInputs objects to be similar to ToSignInput interface,
       // but we allow address to be specified in addition to publicKey for convenience.
-      toSignInputs = options.toSignInputs.map((input) => {
+      toSignInputs = options.toSignInputs.map((input: any) => {
         const index = Number(input.index);
         if (isNaN(index)) throw new Error('invalid index in toSignInput');
 
@@ -143,7 +143,7 @@ export class RunesWallet {
         typeof _psbt === 'string'
           ? bitcoin.Psbt.fromHex(_psbt as string, { network: psbtNetwork })
           : (_psbt as bitcoin.Psbt);
-      psbt.data.inputs.forEach((v, index) => {
+      psbt.data.inputs.forEach((v: any, index: number) => {
         let script: any = null;
         let value = 0;
         if (v.witnessUtxo) {
