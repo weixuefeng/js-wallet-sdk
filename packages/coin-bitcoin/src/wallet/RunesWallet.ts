@@ -1,6 +1,8 @@
-import { AddressUserToSignInput, PublicKeyUserToSignInput, SignPsbtOptions, ToSignInput, UnspentOutput, txHelpers, utils } from '@unisat/wallet-sdk';
+import { AddressUserToSignInput, PublicKeyUserToSignInput, SignPsbtOptions, ToSignInput, UnspentOutput } from '@unisat/wallet-sdk/lib';
 import { toPsbtNetwork } from '@unisat/wallet-sdk/lib/network';
 import { SimpleKeyring }  from '@unisat/wallet-sdk/lib/keyring';
+import { sendRunes } from '@unisat/wallet-sdk/lib/tx-helpers';
+import { utils } from '@unisat/wallet-sdk/lib';
 import bitcoin from "bitcoinjs-lib";
 import { ECPairFactory } from "ecpair";
 import ecc from "tiny-secp256k1";
@@ -8,63 +10,6 @@ import { scriptPkToAddress } from '@unisat/wallet-sdk/lib/address';
 
 export class RunesWallet { 
 
-  /* Full code example:
-
-    let fromWIF = "Your WIF string here"
-    let from = "bc1pd4yu86vqspf7eg46na440lq9864vm8xkyvz4hwuk2v7uqgr255ysz8xhye"
-    let fromPubKey = "03dd234c2b489178ec60475b04b6c9572e5873abf2fcd1039cac2372d64540aea6"
-    let to = "1NMXVLbqFurzXUNKy9G9Xsw6X92Vs8zMwM" 
-
-    let runeid = "842456:2416"
-    let runeAmount = "1000"
-    let feeRate = 20
-
-    let assetUtxos = [
-      {
-        "addressType": 2,  // AddressType
-        "satoshis": 546,
-        "scriptPk":"51206d49c3e9808053eca2ba9f6b57fc053eaacd9cd623055bbb96533dc0206aa509",
-        "txid":"36cce9cc8783a2194258243e90d53fc818493a6bf5c0610ca5fabd50472290ef",
-        "vout":1,
-        "runes":[
-          {
-            "rune":"RUNESMUSKBITCOIN",
-            "runeid":"842456:2416",
-            "spacedRune":"RUNES•MUSK•BITCOIN",
-            "amount":"7000",
-            "symbol":"M",
-            "divisibility":0
-          }
-        ],
-        "pubkey":"03dd234c2b489178ec60475b04b6c9572e5873abf2fcd1039cac2372d64540aea6"
-      }
-    ]
-    let btcUtxos = [
-      {
-        "addressType":2, // AddressType
-        "txid":"36cce9cc8783a2194258243e90d53fc818493a6bf5c0610ca5fabd50472290ef",
-        "vout":3,
-        "satoshis":191012,
-        "scriptPk":"51206d49c3e9808053eca2ba9f6b57fc053eaacd9cd623055bbb96533dc0206aa509",
-        "pubkey":"03dd234c2b489178ec60475b04b6c9572e5873abf2fcd1039cac2372d64540aea6",
-      }
-    ]
-
-    let _runes = new RunesWallet();
-    let r = await _runes.transfer(
-      fromWIF,
-      from,
-      fromPubKey,
-      to,
-      runeid,
-      runeAmount,
-      feeRate,
-      assetUtxos, 
-      btcUtxos)
-
-    console.log(r)
-    // output: { rawTxHex: '0200000......', fee: 3738, feeRate: 20 }
-  */
   async transfer(
     wif: string, 
     from: string, 
@@ -101,7 +46,7 @@ export class RunesWallet {
     
       let outputValue = 546 
     
-      let { psbt, toSignInputs } = await txHelpers.sendRunes({
+      let { psbt, toSignInputs } = await sendRunes({
         assetUtxos,
         assetAddress: from,
         btcUtxos,
@@ -248,3 +193,62 @@ export class RunesWallet {
   }
   
 }
+
+
+/* Full code example:
+
+  let fromWIF = "Your WIF string here"
+  let from = "bc1pd4yu86vqspf7eg46na440lq9864vm8xkyvz4hwuk2v7uqgr255ysz8xhye"
+  let fromPubKey = "03dd234c2b489178ec60475b04b6c9572e5873abf2fcd1039cac2372d64540aea6"
+  let to = "1NMXVLbqFurzXUNKy9G9Xsw6X92Vs8zMwM" 
+
+  let runeid = "842456:2416"
+  let runeAmount = "1000"
+  let feeRate = 20
+
+  let assetUtxos = [
+    {
+      "addressType": 2,  // AddressType
+      "satoshis": 546,
+      "scriptPk":"51206d49c3e9808053eca2ba9f6b57fc053eaacd9cd623055bbb96533dc0206aa509",
+      "txid":"36cce9cc8783a2194258243e90d53fc818493a6bf5c0610ca5fabd50472290ef",
+      "vout":1,
+      "runes":[
+        {
+          "rune":"RUNESMUSKBITCOIN",
+          "runeid":"842456:2416",
+          "spacedRune":"RUNES•MUSK•BITCOIN",
+          "amount":"7000",
+          "symbol":"M",
+          "divisibility":0
+        }
+      ],
+      "pubkey":"03dd234c2b489178ec60475b04b6c9572e5873abf2fcd1039cac2372d64540aea6"
+    }
+  ]
+  let btcUtxos = [
+    {
+      "addressType":2, // AddressType
+      "txid":"36cce9cc8783a2194258243e90d53fc818493a6bf5c0610ca5fabd50472290ef",
+      "vout":3,
+      "satoshis":191012,
+      "scriptPk":"51206d49c3e9808053eca2ba9f6b57fc053eaacd9cd623055bbb96533dc0206aa509",
+      "pubkey":"03dd234c2b489178ec60475b04b6c9572e5873abf2fcd1039cac2372d64540aea6",
+    }
+  ]
+
+  let _runes = new RunesWallet();
+  let r = await _runes.transfer(
+    fromWIF,
+    from,
+    fromPubKey,
+    to,
+    runeid,
+    runeAmount,
+    feeRate,
+    assetUtxos, 
+    btcUtxos)
+
+  console.log(r)
+  // output: { rawTxHex: '0200000......', fee: 3738, feeRate: 20 }
+*/
