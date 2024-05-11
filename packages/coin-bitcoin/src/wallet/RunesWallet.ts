@@ -5,7 +5,7 @@ import { sendRunes } from '@unisat/wallet-sdk/lib/tx-helpers';
 import { utils } from '@unisat/wallet-sdk/lib';
 import bitcoin from "bitcoinjs-lib";
 import { ECPairFactory } from "ecpair";
-import ecc from "tiny-secp256k1";
+const ecc = require("tiny-secp256k1");
 import { scriptPkToAddress } from '@unisat/wallet-sdk/lib/address';
 
 export class RunesWallet { 
