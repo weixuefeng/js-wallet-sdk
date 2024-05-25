@@ -1,5 +1,6 @@
 import {RuneMainWallet} from "./RuneMainWallet"; 
 import {BtcXrcTypes} from "../common";  
+import * as bitcoin from "../index"
 
 
 export class RunesWallet extends RuneMainWallet {
@@ -77,26 +78,38 @@ export class RunesWallet extends RuneMainWallet {
                 }
             }
         }
-        let params: any = {
-            type: BtcXrcTypes.RUNEMAIN,
+        let params: any = { 
             inputs: inputRuneList,
             outputs: outputRuneList,
             address: senderAddr,
-            feePerB: feeRate,
-            runeData: {
-                "etching": null,
-                "burn": false
-            }
+            feePerB: feeRate, 
         };  
+        let cumulativeAmount = 0;
         for (let i = 0; i < btcUtxos.length; i++) {
             let utxo = btcUtxos[i];
+            let amount = Number(utxo.amount);
+            if (amount < 800) continue; // DUST
+            cumulativeAmount += amount;
             params.inputs.push({ 
                 txId: utxo.txId,
                 vOut: utxo.vOut,
-                amount: utxo.amount,
+                amount: amount,
                 address: senderAddr,
             });
+            try {
+                const networkFee = bitcoin.estimateBtcFee(params, this.network());
+                if (cumulativeAmount > networkFee) {
+                    break;
+                }
+            } catch (e) {
+
+            }
         }
+        params.type = BtcXrcTypes.RUNEMAIN;
+        params.runeData = {
+            "etching": null,
+            "burn": false
+        };
         return params;
     }
 
