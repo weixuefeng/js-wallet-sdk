@@ -6,6 +6,7 @@ import * as bitcoin from "../index"
 export class RunesWallet extends RuneMainWallet {
 
     buildParamsForTranferring(senderAddr: string, receiverAddr: string, runeId: string, transferAmount: string, runeUtxos: UtxoInfo[], btcUtxos: UtxoInfo[], feeRate: number) : { [key: string] : any } {
+        const SEQUENCE = 0xfffffffd; // ENABLED FOR RBF
         let toAmount = BigInt(transferAmount);  
         let inputRuneList = [];
         let outputRuneList = [];
@@ -20,7 +21,8 @@ export class RunesWallet extends RuneMainWallet {
                         vOut: utxo.vOut,
                         amount: utxo.amount,
                         address: senderAddr,
-                        data: [{"id": runeId, "amount": balance.toString()}] 
+                        data: [{"id": runeId, "amount": balance.toString()}],
+                        sequence: SEQUENCE, 
                     });
                     outputRuneList.push({  
                         amount: 546,
@@ -57,7 +59,8 @@ export class RunesWallet extends RuneMainWallet {
                                 vOut: e.vOut,
                                 amount: e.amount,
                                 address: senderAddr,
-                                data: [{"id": runeId, "amount": balance.toString()}] 
+                                data: [{"id": runeId, "amount": balance.toString()}],
+                                sequence: SEQUENCE, 
                             });
                         } else { 
                             outputRuneList.push({  
@@ -94,7 +97,8 @@ export class RunesWallet extends RuneMainWallet {
                 txId: utxo.txId,
                 vOut: utxo.vOut,
                 amount: amount,
-                address: senderAddr,
+                address: senderAddr, 
+                sequence: SEQUENCE, 
             });
             try {
                 const networkFee = bitcoin.estimateBtcFee(params, this.network());
