@@ -1,7 +1,8 @@
 import {RuneMainWallet} from "./RuneMainWallet"; 
 import {BtcXrcTypes} from "../common";  
-import * as bitcoin from "../index"
-
+import * as bitcoin from "../index" 
+import { Psbt } from "../bitcoinjs-lib/psbt";
+import { psbtSignImpl } from "../index";
 
 export class RunesWallet extends RuneMainWallet {
 
@@ -117,13 +118,14 @@ export class RunesWallet extends RuneMainWallet {
         return params;
     }
 
-    // buildMintingParams(from: string, to: string, runeId: string, amountToMint: string, timeOfRepetition: number, gasUtxos: UtxoInfo[], feeRate: number) { 
+    async signForMint(psbtHex: string, privateKey: string) {  
+        const network = bitcoin.networks.bitcoin;
+        let psbt = Psbt.fromHex(psbtHex, {network});
+        psbtSignImpl(psbt, privateKey, network)
+        psbt.finalizeAllInputs();
+        return psbt.extractTransaction().toHex();
+    } 
 
-    // } 
-
-    // buildEtchingParams(from: string, runeInfo: EtchRuneInfo, gasUtxos: UtxoInfo[], feeRate: number) { 
-        
-    // }
 }
 
 
