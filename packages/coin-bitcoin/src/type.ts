@@ -63,13 +63,18 @@ type utxoTx = {
 }
 
 // rune
-type RuneData = {
+type RuneData = { 
     edicts: Edict[]
-    etching?: any,
+    etching?: any
+    useDefaultOutput?:boolean
+    defaultOutput?:number
     burn?: boolean
+    mint?: boolean
+    mintNum?: number
 }
 
-type Edict = {
+type Edict = { 
+    block?:number
     id: number
     amount: bigint | string
     output: number

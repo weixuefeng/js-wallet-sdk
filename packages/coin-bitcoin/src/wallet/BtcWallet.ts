@@ -37,7 +37,7 @@ import {
 } from '@okxweb3/coin-base';
 import {base, bip32, bip39} from '@okxweb3/crypto-lib';
 import * as bitcoin from "../index"
-import { networks, RuneTestWallet, RuneWallet} from "../index";
+import { networks, RuneMainTestWallet, RuneMainWallet} from "../index";
 
 
 export const BITCOIN_MESSAGE_ECDSA = 0
@@ -178,11 +178,11 @@ export class BtcWallet extends BaseWallet {
             } catch (e) {
                 return Promise.reject(SignTxError);
             }
-        } else if (type === bitcoin.BtcXrcTypes.RUNE) { // rune
+        }  else if (type === bitcoin.BtcXrcTypes.RUNEMAIN) { // rune
             try {
-                let wallet = new RuneWallet()
+                let wallet = new RuneMainWallet()
                 if (this.network() === networks.testnet) {
-                    wallet = new RuneTestWallet()
+                    wallet = new RuneMainTestWallet()
                 }
                 return Promise.resolve(wallet.signTransaction(param))
             } catch (e) {
@@ -402,11 +402,11 @@ export class BtcWallet extends BaseWallet {
                 return Promise.reject(EstimateFeeError);
             } else if (type === 2) { // psbt
                 return Promise.reject(EstimateFeeError);
-            } else if (type === bitcoin.BtcXrcTypes.RUNE) { // rune
+            } else if (type === bitcoin.BtcXrcTypes.RUNEMAIN) { // rune
                 try {
-                    let wallet = new RuneWallet()
+                    let wallet = new RuneMainWallet()
                     if (this.network() === networks.testnet) {
-                        wallet = new RuneTestWallet()
+                        wallet = new RuneMainTestWallet()
                     }
                     return Promise.resolve(wallet.estimateFee(param))
                 } catch (e) {
