@@ -254,7 +254,7 @@ interface Output {
     omniScript?: string
 }
 
-export function signBtc(utxoTx: utxoTx, privateKey: string, network?: bitcoin.Network, hashArray?: string[], hardware?: boolean, changeOnly?: boolean, getTxBuild: boolean = false) {
+export function signBtc(utxoTx: utxoTx, privateKey: string, network?: bitcoin.Network, hashArray?: string[], hardware?: boolean, changeOnly?: boolean) {
     const inputs = utxoTx.inputs;
     const outputs = utxoTx.outputs;
     const changeAddress = utxoTx.address;
@@ -322,6 +322,58 @@ export function signBtc(utxoTx: utxoTx, privateKey: string, network?: bitcoin.Ne
     return txBuild.build(hashArray);
 }
 
+export function getHardwareBTCTxBuild(utxoTx: utxoTx, network?: bitcoin.Network) {
+    const inputs = utxoTx.inputs;
+    const outputs = utxoTx.outputs;
+    const changeAddress = utxoTx.address;
+    const feePerB = utxoTx.feePerB || 10;
+    const dustSize = utxoTx.dustSize || 546
+    network = network || bitcoin.networks.bitcoin;
+    if (utxoTx.memo) {
+        let buf = base.isHexString(utxoTx.memo) ? base.fromHex(utxoTx.memo) : Buffer.from(base.toUtf8(utxoTx.memo))
+        if (buf.length > 80) {
+            throw  new Error('data after op_return is  too long');
+        }
+    }
+    // calculate transaction size
+    const privateKey = private2Wif(base.fromHex("853fd8960ff34838208d662ecd3b9f8cf413e13e0f74f95e554f8089f5058db0"), network);
+
+    let {
+        inputAmount,
+        outputAmount,
+        virtualSize
+    } = calculateTxSize(inputs, outputs, changeAddress, privateKey, network, dustSize, false, utxoTx.memo, utxoTx.memoPos);
+    let changeAmount = inputAmount - outputAmount - virtualSize * feePerB;
+
+    // sign process
+    let txBuild = new TxBuild(2, network, false, true);
+    for (let i = 0; i < inputs.length; i++) {
+        let input = inputs[i] as utxoInput;
+        const inputPrivKey = input.privateKey || privateKey;
+        const inputAddress = input.address || changeAddress;
+        txBuild.addInput(input.txId, input.vOut, inputPrivKey, inputAddress, input.reedScript, input.amount, input.publicKey, input.sequence);
+    }
+    if (utxoTx.memo && utxoTx.memoPos == 0) {
+        txBuild.addOutput('', 0, base.toHex(bscript.compile(([OPS.OP_RETURN] as Stack).concat(base.isHexString(utxoTx.memo) ? base.fromHex(utxoTx.memo) : Buffer.from(base.toUtf8(utxoTx.memo))))))
+    }
+    for (let i = 0; i < outputs.length; i++) {
+        let output = outputs[i] as utxoOutput;
+        txBuild.addOutput(output.address, output.amount, output.omniScript);
+        if (utxoTx.memo && utxoTx.memoPos && txBuild.outputs.length == utxoTx.memoPos) {
+            txBuild.addOutput('', 0, base.toHex(bscript.compile(([OPS.OP_RETURN] as Stack).concat(base.isHexString(utxoTx.memo) ? base.fromHex(utxoTx.memo) : Buffer.from(base.toUtf8(utxoTx.memo))))))
+        }
+    }
+    if (changeAmount > dustSize) {
+        txBuild.addOutput(changeAddress, changeAmount);
+        if (utxoTx.memo && utxoTx.memoPos && txBuild.outputs.length == utxoTx.memoPos) {
+            txBuild.addOutput('', 0, base.toHex(bscript.compile(([OPS.OP_RETURN] as Stack).concat(base.isHexString(utxoTx.memo) ? base.fromHex(utxoTx.memo) : Buffer.from(base.toUtf8(utxoTx.memo))))))
+        }
+    }
+    if (utxoTx.memo && (utxoTx.memoPos == undefined || utxoTx.memoPos < 0 || utxoTx.memoPos > txBuild.outputs.length)) {
+        txBuild.addOutput('', 0, base.toHex(bscript.compile(([OPS.OP_RETURN] as Stack).concat(base.isHexString(utxoTx.memo) ? base.fromHex(utxoTx.memo) : Buffer.from(base.toUtf8(utxoTx.memo))))))
+    }
+    return txBuild
+}
 
 export function getAddressType(address: string, network: bitcoin.Network): AddressType {
     let decodeBase58: Base58CheckResult | undefined;
