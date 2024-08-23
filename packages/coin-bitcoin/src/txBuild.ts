@@ -319,7 +319,7 @@ export function signBtc(utxoTx: utxoTx, privateKey: string, network?: bitcoin.Ne
     return txBuild.build(hashArray);
 }
 
-export function signBtcTranstion(utxoTx: utxoTx, privateKey: string, network?: bitcoin.Network, hashArray?: string[], hardware?: boolean, changeOnly?: boolean) {
+export function getHardwareBTCTxBuild(utxoTx: utxoTx, network?: bitcoin.Network) {
     const inputs = utxoTx.inputs;
     const outputs = utxoTx.outputs;
     const changeAddress = utxoTx.address;
@@ -333,29 +333,17 @@ export function signBtcTranstion(utxoTx: utxoTx, privateKey: string, network?: b
         }
     }
     // calculate transaction size
-    let fakePrivateKey = privateKey;
-    if (!fakePrivateKey) {
-        fakePrivateKey = private2Wif(base.fromHex("853fd8960ff34838208d662ecd3b9f8cf413e13e0f74f95e554f8089f5058db0"), network);
-    }
-
-    if (changeOnly) {
-        let {
-            inputAmount,
-            outputAmount,
-            virtualSize
-        } = calculateTxSize(inputs, outputs, changeAddress, fakePrivateKey, network, dustSize, false, utxoTx.memo, utxoTx.memoPos);
-        return (inputAmount - outputAmount - virtualSize * feePerB).toString();
-    }
+    const privateKey = private2Wif(base.fromHex("853fd8960ff34838208d662ecd3b9f8cf413e13e0f74f95e554f8089f5058db0"), network);
 
     let {
         inputAmount,
         outputAmount,
         virtualSize
-    } = calculateTxSize(inputs, outputs, changeAddress, fakePrivateKey, network, dustSize, false, utxoTx.memo, utxoTx.memoPos);
+    } = calculateTxSize(inputs, outputs, changeAddress, privateKey, network, dustSize, false, utxoTx.memo, utxoTx.memoPos);
     let changeAmount = inputAmount - outputAmount - virtualSize * feePerB;
 
     // sign process
-    let txBuild = new TxBuild(2, network, false, hardware);
+    let txBuild = new TxBuild(2, network, false, true);
     for (let i = 0; i < inputs.length; i++) {
         let input = inputs[i] as utxoInput;
         const inputPrivKey = input.privateKey || privateKey;
@@ -381,7 +369,7 @@ export function signBtcTranstion(utxoTx: utxoTx, privateKey: string, network?: b
     if (utxoTx.memo && (utxoTx.memoPos == undefined || utxoTx.memoPos < 0 || utxoTx.memoPos > txBuild.outputs.length)) {
         txBuild.addOutput('', 0, base.toHex(bscript.compile(([OPS.OP_RETURN] as Stack).concat(base.isHexString(utxoTx.memo) ? base.fromHex(utxoTx.memo) : Buffer.from(base.toUtf8(utxoTx.memo))))))
     }
-    return txBuild;
+    return txBuild
 }
 
 export function getAddressType(address: string, network: bitcoin.Network): AddressType {
