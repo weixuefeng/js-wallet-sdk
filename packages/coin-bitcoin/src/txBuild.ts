@@ -316,9 +316,6 @@ export function signBtc(utxoTx: utxoTx, privateKey: string, network?: bitcoin.Ne
     if (utxoTx.memo && (utxoTx.memoPos == undefined || utxoTx.memoPos < 0 || utxoTx.memoPos > txBuild.outputs.length)) {
         txBuild.addOutput('', 0, base.toHex(bscript.compile(([OPS.OP_RETURN] as Stack).concat(base.isHexString(utxoTx.memo) ? base.fromHex(utxoTx.memo) : Buffer.from(base.toUtf8(utxoTx.memo))))))
     }
-    if(getTxBuild) {
-        return txBuild
-    }
     return txBuild.build(hashArray);
 }
 
