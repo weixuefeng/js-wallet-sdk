@@ -104,6 +104,11 @@ export function psbtSign(psbtBase64: string, privateKey: string, network?: Netwo
         maximumFeeRate: maximumFeeRate ? maximumFeeRate : defaultMaximumFeeRate
     });
     psbtSignImpl(psbt, privateKey, network)
+    try {
+        psbt.finalizeAllInputs();
+    } catch (e) {
+        console.log("finalizeAllInputs error:", e)
+    }
     return psbt.toBase64();
 }
 
