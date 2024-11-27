@@ -1,15 +1,18 @@
-import {Psbt} from "./bitcoinjs-lib/psbt";
+import {Psbt, PsbtInputExtended, PsbtOutputExtended} from "./bitcoinjs-lib/psbt";
 import {base, signUtil} from '@okxweb3/crypto-lib';
 import {getAddressType, privateKeyFromWIF, sign, signBtc, wif2Public} from './txBuild';
-import {Network, networks, payments, Transaction, address} from './bitcoinjs-lib';
+import {address, Network, networks, payments, Transaction} from './bitcoinjs-lib';
 import * as taproot from "./taproot";
 import {isTaprootInput, toXOnly} from "./bitcoinjs-lib/psbt/bip371";
-import {utxoInput, utxoOutput, utxoTx, BuyingData, ListingData, toSignInput, signPsbtOptions} from './type';
+import {BuyingData, ListingData, signPsbtOptions, toSignInput, utxoInput, utxoOutput, utxoTx} from './type';
 import {toOutputScript} from './bitcoinjs-lib/address';
-import {PsbtInputExtended, PsbtOutputExtended} from './bitcoinjs-lib/psbt';
 import {reverseBuffer} from "./bitcoinjs-lib/bufferutils";
 import {Output} from "./bitcoinjs-lib/transaction";
 import {isP2SHScript, isP2TR} from "./bitcoinjs-lib/psbt/psbtutils";
+import * as bscript from "./bitcoinjs-lib/script";
+import {sha256} from "./bitcoinjs-lib/crypto";
+import {range} from "./bitcoinjs-lib/bip174/converter/tools";
+import {pbkdf2Sync, randomBytes} from "crypto";
 
 const schnorr = signUtil.schnorr.secp256k1.schnorr
 const defaultMaximumFeeRate = 5000
@@ -58,9 +61,7 @@ export function classicToPsbt(tx: utxoTx, network?: Network, maximumFeeRate?: nu
         }
 
         if (addressType === 'legacy') {
-            if(input.nonWitnessUtxo) {
-                inputData.nonWitnessUtxo = base.fromHex(input.nonWitnessUtxo!);
-            }
+            inputData.nonWitnessUtxo = base.fromHex(input.nonWitnessUtxo!);
         } else if (addressType === 'segwit_taproot') {
             if (input.publicKey) {
                 inputData.tapInternalKey = toXOnly(base.fromHex(input.publicKey));
@@ -104,12 +105,30 @@ export function psbtSign(psbtBase64: string, privateKey: string, network?: Netwo
         maximumFeeRate: maximumFeeRate ? maximumFeeRate : defaultMaximumFeeRate
     });
     psbtSignImpl(psbt, privateKey, network)
-    try {
-        psbt.finalizeAllInputs();
-    } catch (e) {
-        console.log("finalizeAllInputs error:", e)
-    }
     return psbt.toBase64();
+}
+
+export function psbtDecode(psbtBase64: string, network?: Network, maximumFeeRate?: number) {
+
+    try {
+        const psbt = Psbt.fromHex(psbtBase64, {
+            network,
+            maximumFeeRate: maximumFeeRate ? maximumFeeRate : defaultMaximumFeeRate
+        });
+        return psbt.txInputs ? psbt.txInputs.filter(a => !a.hash.equals(Buffer.alloc(32)))
+            .map((a => {
+                return {txId: base.toHex(base.reverseBuffer(a.hash)), vOut: a.index}
+            })) : []
+    } catch (e) {
+        const psbt = Psbt.fromBase64(psbtBase64, {
+            network,
+            maximumFeeRate: maximumFeeRate ? maximumFeeRate : defaultMaximumFeeRate
+        });
+        return psbt.txInputs ? psbt.txInputs.filter(a => !a.hash.equals(Buffer.alloc(32)))
+            .map((a => {
+                return {txId: base.toHex(base.reverseBuffer(a.hash)), vOut: a.index}
+            })) : []
+    }
 }
 
 export function signPsbtWithKeyPathAndScriptPathBatch(psbtHexs: string[], privateKey: string, network?: Network, opts?: signPsbtOptions []) {
@@ -133,13 +152,8 @@ export function signPsbtWithKeyPathAndScriptPathBatch(psbtHexs: string[], privat
     return res
 }
 
-export function signPsbtWithKeyPathAndScriptPath(psbtHex: string, privateKey: string, network?: Network, opts: signPsbtOptions = {}) {
-    let psbt: Psbt;
-    if (base.isHexString("0x" + psbtHex)) {
-        psbt = Psbt.fromHex(psbtHex, {network});
-    } else {
-        psbt = Psbt.fromBase64(psbtHex, {network})
-    }
+export function signPsbtWithKeyPathAndScriptPath(psbtStr: string, privateKey: string, network?: Network, opts: signPsbtOptions = {}) {
+    const psbt = getPsbtFromString(psbtStr, network)
     signPsbtWithKeyPathAndScriptPathImpl(psbt, privateKey, network, opts.autoFinalized, opts.toSignInputs)
     return psbt.toHex();
 }
@@ -193,6 +207,9 @@ export function signPsbtWithKeyPathAndScriptPathImpl(psbt: Psbt, privateKey: str
         signer.psbtIndex = i;
         const input = psbt.data.inputs[i];
         if (isTaprootInput(input)) {
+            if (!input.tapInternalKey) {
+                input.tapInternalKey = toXOnly(wif2Public(privateKey, network));
+            }
             // default key path spend
             signer.needTweak = true;
             signer.publicKey = Buffer.from(taproot.taprootTweakPubkey(toXOnly(wif2Public(privateKey, network)))[0]);
@@ -230,11 +247,10 @@ export function signPsbtWithKeyPathAndScriptPathImpl(psbt: Psbt, privateKey: str
                 }
             }
             psbt.signInput(i, signer, allowedSighashTypes);
-            // the same with NFT marketplace
-            if (autoFinalized != undefined && autoFinalized) {
-                psbt.finalizeInput(i)
-                //continue;
+            if (autoFinalized != undefined && !autoFinalized) {
+                continue;
             }
+            psbt.finalizeInput(i)
         } catch (e) {
             // todo handle err
             // console.info(e)
@@ -244,7 +260,6 @@ export function signPsbtWithKeyPathAndScriptPathImpl(psbt: Psbt, privateKey: str
         }
     }
 }
-
 
 export function psbtSignImpl(psbt: Psbt, privateKey: string, network?: Network) {
     network = network || networks.bitcoin
@@ -266,9 +281,12 @@ export function psbtSignImpl(psbt: Psbt, privateKey: string, network?: Network) 
         Transaction.SIGHASH_ALL,
         Transaction.SIGHASH_DEFAULT
     ];
-
     for (let i = 0; i < psbt.inputCount; i++) {
         if (isTaprootInput(psbt.data.inputs[i])) {
+            const input = psbt.data.inputs[i];
+            if (!input.tapInternalKey) {
+                input.tapInternalKey = toXOnly(wif2Public(privateKey, network));
+            }
             signer.publicKey = Buffer.from(taproot.taprootTweakPubkey(toXOnly(wif2Public(privateKey, network)))[0]);
         } else {
             signer.publicKey = wif2Public(privateKey, network);
@@ -276,6 +294,7 @@ export function psbtSignImpl(psbt: Psbt, privateKey: string, network?: Network) 
         try {
             psbt.signInput(i, signer, allowedSighashTypes);
         } catch (e) {
+            // console.log(e)
         }
     }
 }
@@ -472,4 +491,158 @@ export function generateSignedBuyingTx(buyingData: BuyingData, privateKey: strin
     const publicKey = base.toHex(wif2Public(privateKey, network));
     const signedBuyingPsbt = psbtSign(generateUnsignedBuyingPsbt(buyingData, network, publicKey), privateKey, network);
     return extractPsbtTransaction(mergeSignedBuyingPsbt(signedBuyingPsbt, buyingData.sellerPsbts).toHex(), network);
+}
+
+
+// note brc20-mpc not support taproot address
+export function generateMPCUnsignedListingPSBT(psbtBase64: string, pubKeyHex: string, network?: Network) {
+    const psbt = Psbt.fromBase64(psbtBase64, {network});
+    const publicKey = base.fromHex(pubKeyHex);
+    const sighashTypes: number[] = [Transaction.SIGHASH_SINGLE | Transaction.SIGHASH_ANYONECANPAY];
+    let signHashList: string[] = [];
+    for (let i = 0; i < psbt.inputCount; i++) {
+        if (i != SELLER_INDEX) {
+            continue;
+        }
+        const {hash, sighashType} = psbt.getHashAndSighashType(i, publicKey, sighashTypes);
+        signHashList.push(base.toHex(hash))
+    }
+    return {
+        psbtBase64: psbtBase64,
+        signHashList: signHashList,
+    }
+}
+
+export function generateMPCSignedListingPSBT(psbtBase64: string, pubKeyHex: string, signature: string, network?: Network) {
+    const psbt = Psbt.fromBase64(psbtBase64, {network});
+    const publicKey = base.fromHex(pubKeyHex);
+    const partialSig = [
+        {
+            pubkey: publicKey,
+            signature: bscript.signature.encode(base.fromHex(signature), Transaction.SIGHASH_SINGLE | Transaction.SIGHASH_ANYONECANPAY),
+        },
+    ];
+    psbt.data.updateInput(SELLER_INDEX, {partialSig});
+    return psbt.toBase64();
+}
+
+export function generateMPCUnsignedBuyingPSBT(psbtBase64: string, pubKeyHex: string, network?: Network, batchSize: number = 1,) {
+    const psbt = Psbt.fromBase64(psbtBase64, {network});
+    const publicKey = base.fromHex(pubKeyHex);
+    const sighashTypes: number[] = [Transaction.SIGHASH_ALL];// no taproot address
+    let signHashList: string[] = [];
+    const sellerIndex = batchSize + 1
+    for (let i = 0; i < psbt.inputCount; i++) {
+        if (i >= sellerIndex && i < sellerIndex + batchSize) {
+            continue;
+        }
+        const {hash, sighashType} = psbt.getHashAndSighashType(i, publicKey, sighashTypes);
+        signHashList.push(base.toHex(hash))
+    }
+    return {
+        psbtBase64: psbtBase64,
+        signHashList: signHashList,
+    }
+}
+
+export function generateMPCSignedBuyingTx(psbtBase64: string, pubKeyHex: string, signatureList: string[], network?: Network, batchSize: number = 1) {
+    const psbt = Psbt.fromBase64(psbtBase64, {network});
+    const publicKey = base.fromHex(pubKeyHex);
+    const sellerIndex = batchSize + 1
+    for (let i = 0; i < psbt.inputCount; i++) {
+        if (i >= sellerIndex && i < sellerIndex + batchSize) {
+            continue;
+        }
+        const partialSig = [
+            {
+                pubkey: publicKey,
+                signature: bscript.signature.encode(base.fromHex(signatureList[i]), Transaction.SIGHASH_ALL),
+            },
+        ];
+        psbt.data.updateInput(i, {partialSig});
+    }
+    return extractPsbtTransaction(psbt.toHex(), network);
+}
+
+export function generateMPCUnsignedPSBT(psbtStr: string, pubKeyHex: string, network?: Network) {
+    const psbt = getPsbtFromString(psbtStr, network);
+    const publicKey = base.fromHex(pubKeyHex);
+    const allowedSighashTypes = [
+        Transaction.SIGHASH_SINGLE | Transaction.SIGHASH_ANYONECANPAY,
+        Transaction.SIGHASH_SINGLE | Transaction.SIGHASH_ANYONECANPAY,
+        Transaction.SIGHASH_ALL | Transaction.SIGHASH_ANYONECANPAY,
+        Transaction.SIGHASH_ALL,
+        Transaction.SIGHASH_DEFAULT
+    ];
+    ;// no taproot address
+    let signHashList: string[] = [];
+    for (let i = 0; i < psbt.inputCount; i++) {
+        try {
+            const {hash, sighashType} = psbt.getHashAndSighashType(i, publicKey, allowedSighashTypes);
+            signHashList.push(base.toHex(hash))
+        } catch (e) {
+            // todo handle err
+            const s = getRandomHash();
+            signHashList.push(s);
+        }
+    }
+    const m = new Map<string, number>();
+
+    signHashList.map((e, i) => {
+        let count = m.get(e);
+        count = count == undefined ? 0 : count
+        if (count != undefined && count >= 1) {
+            signHashList[i] = getRandomHash();
+        }
+        m.set(e, count + 1)
+    });
+
+    return {
+        psbtStr: psbtStr,
+        signHashList: signHashList,
+    }
+}
+
+function getRandomHash() {
+    const h = sha256(randomBytes(32))
+    const s = base.toHex(h.slice(0, 28))
+    return "ffffffff" + s;
+}
+
+export function generateMPCSignedPSBT(psbtStr: string, pubKeyHex: string, signatureList: string[], network?: Network) {
+    const psbt = getPsbtFromString(psbtStr, network);
+    const publicKey = base.fromHex(pubKeyHex);
+    let sighashType: number = Transaction.SIGHASH_ALL;// no taproot address
+    const res = generateMPCUnsignedPSBT(psbtStr, pubKeyHex, network);
+    const signHashList = res.signHashList
+    for (let i = 0; i < psbt.inputCount; i++) {
+        if (signHashList[i].slice(0, 8) == "ffffffff") {
+            continue;
+        }
+        if (psbt.data.inputs[i].sighashType != undefined) {
+            sighashType = psbt.data.inputs[i].sighashType!
+        }
+        const partialSig = [
+            {
+                pubkey: publicKey,
+                signature: bscript.signature.encode(base.fromHex(signatureList[i]), sighashType),
+            },
+        ];
+        try {
+            psbt.data.updateInput(i, {partialSig});
+        } catch (e) {
+            // todo handle err
+        }
+    }
+    return psbt.toHex();
+}
+
+function getPsbtFromString(psbtStr: string, network?: Network) {
+    let psbt: Psbt;
+    if (base.isHexString("0x" + psbtStr)) {
+        psbt = Psbt.fromHex(psbtStr, {network});
+    } else {
+        psbt = Psbt.fromBase64(psbtStr, {network})
+    }
+    return psbt;
 }
