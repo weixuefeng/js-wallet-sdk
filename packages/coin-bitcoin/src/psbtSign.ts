@@ -637,7 +637,7 @@ export function generateMPCSignedPSBT(psbtStr: string, pubKeyHex: string, signat
     return psbt.toHex();
 }
 
-function getPsbtFromString(psbtStr: string, network?: Network) {
+export function getPsbtFromString(psbtStr: string, network?: Network) {
     let psbt: Psbt;
     if (base.isHexString("0x" + psbtStr)) {
         psbt = Psbt.fromHex(psbtStr, {network});
